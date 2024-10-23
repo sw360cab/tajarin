@@ -2,36 +2,27 @@ package tajarin
 
 import (
 	"context"
-	"fmt"
 
 	"go.uber.org/zap"
 )
 
-// initialize server with n value
-
-// wait for n subscriber
-
-// combine data
-
-// broadcast message to subscribers
-
 type TajarinProducer struct {
-	maxNodes int
+	maxNodes      int64
+	listenAddress string
 }
 
-func NewTajarinProducer(maxNodes int) TajarinProducer {
+func NewTajarinProducer(maxNodes int64, listenAddress string) TajarinProducer {
 	return TajarinProducer{
-		maxNodes,
+		maxNodes:      maxNodes,
+		listenAddress: listenAddress,
 	}
 }
 
-func (tp *TajarinProducer) ListenAndWait() {
-	fmt.Println(tp.maxNodes)
-	logger, _ := zap.NewProduction()
+func (tp *TajarinProducer) ListenAndWait(ctx context.Context, logger *zap.Logger) {
 	tcpListener := NewTCPListener(
-		DefaultListenAddress,
 		logger,
-		int64(tp.maxNodes),
+		tp.listenAddress,
+		tp.maxNodes,
 	)
-	tcpListener.Serve(context.Background())
+	tcpListener.Serve(ctx)
 }

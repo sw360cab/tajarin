@@ -22,8 +22,6 @@ const (
 	DefaultP2PPort        = "26656"
 )
 
-var defaultChainID = "dev"
-
 type generateCfg struct {
 	outputPath        string
 	chainID           string
@@ -43,11 +41,11 @@ type validatorAddCfg struct {
 }
 
 type JsonTajarinRequest struct {
-	Name    string `json:"name"`
-	PubKey  string `json:"pubKey"`
-	Address string `json:"address"`
-	P2PKey  string `json:"p2pKey"`
-	P2PHost string `json:"p2pHost"`
+	Name    string `json:"name" validate:"required"`
+	Address string `json:"address" validate:"required"`
+	PubKey  string `json:"pubKey" validate:"required"`
+	P2PKey  string `json:"p2pKey" validate:"required"`
+	P2PHost string `json:"p2pHost" validate:"required"`
 	P2PPort string `json:"p2pPort,omitempty"`
 }
 
@@ -63,21 +61,21 @@ type JsonTajarinResponse struct {
 type ConfigValue []string
 
 type TCPListener struct {
-	addr              string
-	logger            *zap.Logger
 	maxSubs           int64
-	openConnections   []net.Conn
+	addr              string
 	genesisPath       string
+	logger            *zap.Logger
+	openConnections   []net.Conn
 	validatorsGenesis []validatorAddCfg
 	configItems       map[string]ConfigValue
 }
 
-func NewTCPListener(addr string, logger *zap.Logger, maxSubs int64) *TCPListener {
+func NewTCPListener(logger *zap.Logger, addr string, maxSubs int64) *TCPListener {
 	return &TCPListener{
-		addr:              addr,
-		logger:            logger,
 		maxSubs:           maxSubs,
+		addr:              addr,
 		genesisPath:       "genesis.json",
+		logger:            logger,
 		validatorsGenesis: []validatorAddCfg{},
 		configItems:       map[string]ConfigValue{},
 	}
@@ -87,6 +85,11 @@ func NewTCPListener(addr string, logger *zap.Logger, maxSubs int64) *TCPListener
 func (tl *TCPListener) Serve(ctx context.Context) error {
 	var sem sync.Mutex
 	var subscribers int64
+
+	if tl.maxSubs <= 0 {
+		tl.logger.Sugar().Fatalf("Insufficient Number of Subribers: %d", tl.maxSubs)
+	}
+
 	listener, err := net.Listen("tcp", tl.addr)
 	if err != nil {
 		return err
@@ -112,8 +115,7 @@ func (tl *TCPListener) Serve(ctx context.Context) error {
 		// Listen for an incoming connection.
 		conn, err := listener.Accept()
 		if err != nil {
-			tl.logger.Error(err.Error())
-			os.Exit(1)
+			tl.logger.Fatal(err.Error())
 		}
 
 		if subscribers > tl.maxSubs {
