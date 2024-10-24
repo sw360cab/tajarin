@@ -1,6 +1,6 @@
 # Tajarin
 
-An handy application collecting validators' credentials (hostname, pub key, address, p2p node key) to generate and distribute a shared Genesis file and partail configuration items (_persistent_peers_).
+An handy application collecting validators' credentials (hostname, pub key, address, p2p node key) to generate and distribute a shared Genesis file and partial Gno configuration items (_persistent_peers_).
 
 The goal of the application is the possibility to create and distibute a genesis file (plus other configuration) to be shared among the validators that will partecipate in the network of Gno nodes. It avoids the need to agree, build and distribute manually the genesis file.
 
