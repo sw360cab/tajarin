@@ -3,6 +3,7 @@ package tcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -46,10 +47,10 @@ func NewTCPListener(logger *zap.Logger, addr string, maxSubs int64) *TCPListener
 func (tl *TCPListener) Serve(ctx context.Context) error {
 	var sem sync.Mutex
 	var subscribers int64
-	var jtResp tajson.JsonTajarinResponse
+	var reconcileError error
 
 	if tl.maxSubs <= 0 {
-		tl.logger.Sugar().Fatalf("Insufficient Number of Subribers: %d", tl.maxSubs)
+		tl.logger.Sugar().Fatalf("Insufficient Number of Subscribers: %d", tl.maxSubs)
 	}
 
 	listener, err := net.Listen("tcp", tl.addr)
@@ -61,16 +62,20 @@ func (tl *TCPListener) Serve(ctx context.Context) error {
 	defer listener.Close()
 	defer tl.logger.Info("TCP server shut down")
 	defer func() { // close opened connections
-		one := make([]byte, 1)
-		for _, conn := range tl.openConnections {
-			if r, _ := conn.Read(one); r == 0 {
-				conn.Close()
+		if reconcileError != nil {
+			tl.logger.Sugar().Error("Notifying opened connections of problem occurred", reconcileError)
+			for _, conn := range tl.openConnections {
+				tl.writeJsonAndCloseConnection(conn, reconcileError)
 			}
 		}
 	}()
 	tl.logger.Info(
 		"TCP server started",
 		zap.String("address", listener.Addr().String()),
+	)
+	tl.logger.Info(
+		"Waiting to reconcile validator nodes",
+		zap.Int64("max-nodes", tl.maxSubs),
 	)
 
 	for {
@@ -89,12 +94,11 @@ func (tl *TCPListener) Serve(ctx context.Context) error {
 		tl.logger.Info("New connection added")
 		// Handle connections in the same goroutine.
 		// Note: Using go routines will imply a channel
+		// TODO: deeply validate request
 		err = tl.handleRequest(conn)
 		if err != nil {
 			tl.logger.Sugar().Error("Incoming request failed", err)
-			jtResp = tajson.JsonTajarinResponse{}
-			jtResp.Error = err.Error()
-			tl.writeJsonAndCloseConnection(conn, jtResp)
+			tl.writeJsonAndCloseConnection(conn, err)
 			subscribers -= 1
 		}
 		// add connetion
@@ -113,27 +117,30 @@ func (tl *TCPListener) Serve(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	tl.logger.Sugar().Infof("Genesis successfully generated at %s\n", tl.genesisPath)
+	tl.logger.Sugar().Infof("Genesis successfully generated at %s", tl.genesisPath)
 
 	// Add Validators to Genesis
 	for _, validatorCfg := range tl.validatorsGenesis {
 		err = gnoutils.ExecValidatorAdd(&validatorCfg)
 		if err != nil {
+			// Specify Validator config causing the problem
+			reconcileError = fmt.Errorf("Configuration of validator node -> %s <- caused an issue: %w", validatorCfg.Name, err)
 			break
 		}
-		tl.logger.Sugar().Infof("Validator with address %s added to genesis file\n", *&validatorCfg.Address)
+		tl.logger.Sugar().Infof("Validator with address %s added to genesis file", *&validatorCfg.Address)
 	}
 	if err != nil {
 		return err
 	}
 
 	// Generating response
-	jtResp = tajson.JsonTajarinResponse{}
+	jtResp := tajson.JsonTajarinResponse{}
 
 	// Add Genesis to response
 	var genesisJson = json.RawMessage{}
 	err = tl.marshallGenesisJson(&genesisJson)
 	if err != nil {
+		reconcileError = err
 		return err
 	}
 	jtResp.Genesis = genesisJson
@@ -148,6 +155,7 @@ func (tl *TCPListener) Serve(ctx context.Context) error {
 	// Marshal the struct back to a JSON string
 	marshaledJSON, err := json.Marshal(jtResp)
 	if err != nil {
+		reconcileError = err
 		return err
 	}
 
@@ -161,11 +169,17 @@ func (tl *TCPListener) Serve(ctx context.Context) error {
 }
 
 // Write Json and Close connection
-func (tl *TCPListener) writeJsonAndCloseConnection(conn net.Conn, jtResp tajson.JsonTajarinResponse) error {
+func (tl *TCPListener) writeJsonAndCloseConnection(conn net.Conn, currentErr error) error {
+	jtResp := tajson.JsonTajarinResponse{}
+	jtResp.Error = currentErr.Error()
+
+	// Marshal Json Item
 	marshaledJSON, err := json.Marshal(jtResp)
 	if err != nil {
 		return err
 	}
+
+	// Handle Connection
 	conn.Write(marshaledJSON)
 	conn.Close()
 	return nil
