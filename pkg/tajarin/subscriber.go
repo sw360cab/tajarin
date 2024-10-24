@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
+	"strings"
 	"time"
 
+	tajson "github.com/gnolang/tajarin/pkg/json"
 	"go.uber.org/zap"
 )
 
@@ -15,7 +18,7 @@ type TajarinSubscriber struct {
 	listenAddress string
 }
 
-func (ts *TajarinSubscriber) Subscribe(req JsonTajarinRequest, listenAddress string, logger *zap.Logger) error {
+func (ts *TajarinSubscriber) Subscribe(req tajson.JsonTajarinRequest, listenAddress string, logger *zap.Logger) error {
 	ts.logger = logger
 
 	// Connect to the server
@@ -47,14 +50,21 @@ func (ts *TajarinSubscriber) Subscribe(req JsonTajarinRequest, listenAddress str
 	return ts.MarshallSuppressEmptyFields(buf[:lenRead], req)
 }
 
-func (ts *TajarinSubscriber) MarshallSuppressEmptyFields(buf []byte, req JsonTajarinRequest) error {
+func (ts *TajarinSubscriber) MarshallSuppressEmptyFields(buf []byte, req tajson.JsonTajarinRequest) error {
 	outputFilename := fmt.Sprintf("%s-output.json", req.Name)
 	// Unmarshal the buffer into a map to manipulate null values
 	var data map[string]interface{}
 	err := json.Unmarshal(buf, &data)
 	if err != nil {
-		ts.logger.Sugar().Error("Error marshalling:", err)
+		ts.logger.Sugar().Error("Error unmarshalling:", err)
 		return err
+	}
+
+	// get tag name of the Error field
+	field, _ := reflect.TypeOf(tajson.JsonTajarinResponse{}).FieldByName("Error")
+	tag := field.Tag.Get("json")
+	if errValue, exists := data[strings.Split(tag, ",")[0]]; exists {
+		return fmt.Errorf(fmt.Sprintf("%v", errValue))
 	}
 
 	// Replace nil (null) values with empty strings
@@ -74,10 +84,9 @@ func (ts *TajarinSubscriber) MarshallSuppressEmptyFields(buf []byte, req JsonTaj
 	// Save the modified JSON to a file
 	err = os.WriteFile(outputFilename, modifiedJSON, 0644)
 	if err != nil {
-		ts.logger.Sugar().Error("Error marshalling:", err)
 		return err
 	}
 
-	ts.logger.Sugar().Info("JSON data saved successfully to %s", outputFilename)
+	ts.logger.Sugar().Infof("JSON data saved successfully to %s", outputFilename)
 	return nil
 }

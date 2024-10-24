@@ -3,6 +3,7 @@ package tajarin
 import (
 	"context"
 
+	"github.com/gnolang/tajarin/pkg/tcp"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +20,7 @@ func NewTajarinProducer(maxNodes int64, listenAddress string) TajarinProducer {
 }
 
 func (tp *TajarinProducer) ListenAndWait(ctx context.Context, logger *zap.Logger) {
-	tcpListener := NewTCPListener(
+	tcpListener := tcp.NewTCPListener(
 		logger,
 		tp.listenAddress,
 		tp.maxNodes,

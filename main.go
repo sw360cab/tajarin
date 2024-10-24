@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/gnolang/gno/tm2/pkg/commands"
-	"github.com/gnolang/tajarin/tajarin"
+	"github.com/gnolang/tajarin/pkg/tajarin"
 	"go.uber.org/zap"
 )
 

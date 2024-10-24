@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gnolang/gno/tm2/pkg/commands"
+	"github.com/gnolang/tajarin/pkg/tcp"
 	"go.uber.org/zap"
 )
 
@@ -42,8 +43,8 @@ func (c *producerCfg) RegisterFlags(fs *flag.FlagSet) {
 	fs.StringVar(
 		&c.listenAddress,
 		"listen-address",
-		DefaultListenAddress,
-		fmt.Sprintf("listening address of node synchronizer [deault: %s]", DefaultListenAddress),
+		tcp.DefaultListenAddress,
+		fmt.Sprintf("listening address of node synchronizer [deault: %s]", tcp.DefaultListenAddress),
 	)
 }
 
