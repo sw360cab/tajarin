@@ -21,10 +21,10 @@ Upon receving a predefined number of subscrptions the service will use the given
 
 The generated data will be returned to the subscriber in a JSON format:
 
-```json
+```txt
 {
-  'genesis': <genesis_file_content>,
-  'config': {
+  "genesis": <genesis_file_content>,
+  "config": {
     persistent_peers: <value>
     <config_key_1>: ...,
     <config_key_2>: ...
@@ -39,7 +39,7 @@ Connect to the service providing the following data:
 - name (`-name`)
 - pub key (`-pub-key`)
 - address (`-address`)
-- p2p node key (`-p2p-key`)
+- p2p node key (`-p2p-node`)
 - p2p node public address or dns name (`-p2p-host`)
 - p2p node port (`-p2p-port`) [optional, default: 26656]
 
@@ -68,4 +68,4 @@ It will act in the following wait:
 
 ## Future work
 
-- generate secrets within Tajarin itself, optionally and via argument param
+- generate secrets within Tajarin itself, optionally and via arguments
